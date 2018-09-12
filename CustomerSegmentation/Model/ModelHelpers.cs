@@ -1,4 +1,5 @@
-﻿using Microsoft.ML;
+﻿using CustomerSegmentation.RetailData;
+using Microsoft.ML;
 using Microsoft.ML.Runtime;
 using Microsoft.ML.Runtime.Data;
 using System;
@@ -7,9 +8,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace CustomerSegmentation
+namespace CustomerSegmentation.Model
 {
-    public static class Helpers
+    public static class ModelHelpers
     {
         static FileInfo currentAssemblyLocation = new FileInfo(typeof(Program).Assembly.Location);
         static private readonly string _dataRoot = Path.Combine(currentAssemblyLocation.Directory.FullName, "assets");
@@ -20,6 +21,15 @@ namespace CustomerSegmentation
                 return null;
 
             return Path.GetFullPath(Path.Combine(paths.Prepend(_dataRoot).ToArray()));
+        }
+
+        public static string DeleteAssets(params string[] paths)
+        {
+            var location = GetAssetsPath(paths);
+
+            if (!string.IsNullOrWhiteSpace(location) && File.Exists(location))
+                File.Delete(location);
+            return location;
         }
 
         public static IEnumerable<string> Columns<T>() where T : class

@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="0.5.0" />
     <PackageReference Include="Microsoft.ML.CpuMath" Version="0.5.0" />
+    <PackageReference Include="OxyPlot.Core" Version="1.0.0" />
     <PackageReference Include="Scikit.ML.DataFrame" Version="0.4.0" />
   </ItemGroup>
 
@@ -22,6 +23,13 @@
     <None Update="assets\data\transactions.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="assets\model\models.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="assets\model\" />
   </ItemGroup>
 
 </Project>

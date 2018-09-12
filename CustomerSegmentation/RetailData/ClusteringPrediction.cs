@@ -8,6 +8,7 @@ namespace CustomerSegmentation.RetailData
         public uint SelectedClusterId;
         [ColumnName("Score")]
         public float[] Distance;
+        [ColumnName("PCAFeatures")]
+        public float[] PCAFeatures;
     }
-
 }
