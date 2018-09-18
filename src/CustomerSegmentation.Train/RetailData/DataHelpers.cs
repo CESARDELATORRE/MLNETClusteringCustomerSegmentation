@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using static CustomerSegmentation.Model.ModelHelpers;
 
 namespace CustomerSegmentation.RetailData
 {
@@ -9,10 +10,14 @@ namespace CustomerSegmentation.RetailData
     {
         public static IEnumerable<PivotData> PreProcess(string offersDataLocation, string transactionsDataLocation)
         {
+            ConsoleWriteHeader("Preprocess input files");
+            Console.WriteLine($"Offers file: {offersDataLocation}");
+            Console.WriteLine($"Transactions file: {transactionsDataLocation}");
+
             var offers = Offer.ReadFromCsv(offersDataLocation);
             var transactions = Transaction.ReadFromCsv(transactionsDataLocation);
 
-            // join datasets
+            // inner join datasets
             var clusterData = (from of in offers
                                join tr in transactions on of.OfferId equals tr.OfferId
                                select new
@@ -29,13 +34,13 @@ namespace CustomerSegmentation.RetailData
                                }).ToArray();
 
             // pivot table (naive way)
-            var pivotData =
+            // based on code from https://stackoverflow.com/a/43091570
+            var pivotDataArray =
                 (from c in clusterData
                  group c by c.LastName into gcs
                  let lookup = gcs.ToLookup(y => y.OfferId, y => y.Count)
                  select new PivotData()
                  {
-                     //LastName = gcs.Key,
                      C1 = (float)lookup["1"].Sum(),
                      C2 = (float)lookup["2"].Sum(),
                      C3 = (float)lookup["3"].Sum(),
@@ -70,7 +75,9 @@ namespace CustomerSegmentation.RetailData
                      C32 = (float)lookup["32"].Sum()
                  }).ToArray();
 
-            return pivotData;
+            Console.WriteLine($"Total rows: {pivotDataArray.Length}");
+
+            return pivotDataArray;
         }
     }
 }

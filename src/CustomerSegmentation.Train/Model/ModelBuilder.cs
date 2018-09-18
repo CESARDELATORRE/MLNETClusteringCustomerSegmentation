@@ -1,15 +1,13 @@
-﻿using CustomerSegmentation.RetailData;
+﻿using System;
+using CustomerSegmentation.RetailData;
 using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.ML.Models;
 using Microsoft.ML.Trainers;
 using Microsoft.ML.Transforms;
-using Scikit.ML.DataFrame;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
+using static CustomerSegmentation.Model.ModelHelpers;
 
 namespace CustomerSegmentation.Model
 {
@@ -26,25 +24,38 @@ namespace CustomerSegmentation.Model
             this.modelLocation = modelLocation;
         }
 
-        public async Task BuildAndTrain(int kClusters = 5)
+        public async Task BuildAndTrain(int kClusters = 4)
         {
-            var preProcessData = DataHelpers.PreProcess(offersDataLocation,transactionsDataLocation);
+            var preProcessData = DataHelpers.PreProcess(offersDataLocation, transactionsDataLocation);
+
             var learningPipeline = BuildModel(preProcessData, kClusters);
-            var model = Train(learningPipeline);
+
+            PredictionModel<PivotData, ClusteringPrediction> model = TrainModel(learningPipeline);
+
             if (!string.IsNullOrEmpty(modelLocation))
             {
-                await model.WriteAsync(ModelHelpers.DeleteAssets(modelLocation));
+                await SaveModel(model);
             }
         }
 
-        protected PredictionModel<PivotData, ClusteringPrediction> Train(LearningPipeline pipeline)
+        private async Task SaveModel(PredictionModel<PivotData, ClusteringPrediction> model)
         {
-            var model = pipeline.Train<PivotData, ClusteringPrediction>();
-            return model;
+            ConsoleWriteHeader("Save model to local file");
+            DeleteAssets(modelLocation);
+            await model.WriteAsync(modelLocation);
+            Console.WriteLine($"Model saved: {modelLocation}");
+        }
+
+        protected PredictionModel<PivotData, ClusteringPrediction> TrainModel(LearningPipeline pipeline)
+        {
+            ConsoleWriteHeader("Training customer segmentation model");
+            return pipeline.Train<PivotData, ClusteringPrediction>();
         }
 
         protected LearningPipeline BuildModel(IEnumerable<PivotData> pivotData, int kClusters)
         {
+            ConsoleWriteHeader("Build model pipeline");
+
             var pipeline = new LearningPipeline();
 
             // The CollectionDataSource class allows to use a regular in memory dataset 
@@ -53,21 +64,22 @@ namespace CustomerSegmentation.Model
 
             // All dataset columns must be combined in a single column
             var columnsNumerical = ModelHelpers.ColumnsNumerical<PivotData>();
-            pipeline.Add(new ColumnConcatenator(outputColumn: "NumericalFeatures", columnsNumerical));
+            pipeline.Add(new ColumnConcatenator(outputColumn: "Features", columnsNumerical));
 
             // Add a couple of columns derived from the PCA. 
             // These columns will be used for translating a multidimensional sample 
             // to two-dimension sample which can be easily plotted in 2D 
-            pipeline.Add(new PcaCalculator(("NumericalFeatures", "PCAFeatures")) { Rank = 2 });
+            // http://ufldl.stanford.edu/wiki/index.php/PCA
+            pipeline.Add(new PcaCalculator(("Features", "PCAFeatures")) { Rank = 2, Seed = 42 });
 
-            pipeline.Add(new ColumnConcatenator("Features", "NumericalFeatures", "PCAFeatures"));
+            //pipeline.Add(new ColumnConcatenator("Features", "NumericalFeatures", "PCAFeatures"));
 
             // The Learner is the last element in the pipeline. In this case, we use a k-Means algorithm
             // that is able to do unsupervised learning. The output of this learner will be a model 
             // that will classify samples in different categories. One drawback from this algorithm is that
             // you need to set up the total number of clusters. In a real case, you will need to test this 
             // hyperparameter and check how fits your own dataset
-            pipeline.Add(new KMeansPlusPlusClusterer() { K = kClusters, InitAlgorithm = KMeansPlusPlusTrainerInitAlgorithm.KMeansPlusPlus });
+            pipeline.Add(new KMeansPlusPlusClusterer() { K = kClusters });
 
             return pipeline;
         }

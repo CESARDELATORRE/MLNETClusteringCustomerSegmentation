@@ -9,6 +9,6 @@ namespace CustomerSegmentation.RetailData
         [ColumnName("Score")]
         public float[] Distance;
         [ColumnName("PCAFeatures")]
-        public float[] PCAFeatures;
+        public float[] Location;
     }
 }

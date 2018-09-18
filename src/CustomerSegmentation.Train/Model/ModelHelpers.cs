@@ -4,6 +4,7 @@ using Microsoft.ML.Runtime;
 using Microsoft.ML.Runtime.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -30,6 +31,20 @@ namespace CustomerSegmentation.Model
             if (!string.IsNullOrWhiteSpace(location) && File.Exists(location))
                 File.Delete(location);
             return location;
+        }
+
+        public static void ConsoleWriteHeader(params string[] lines)
+        {
+            var defaultColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine(" ");
+            foreach (var line in lines)
+            {
+                Console.WriteLine(line);
+            }
+            var maxLength = lines.Select(x => x.Length).Max();
+            Console.WriteLine(new String('#', maxLength));
+            Console.ForegroundColor = defaultColor;
         }
 
         public static IEnumerable<string> Columns<T>() where T : class

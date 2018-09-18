@@ -26,12 +26,4 @@ namespace CustomerSegmentation.RetailData
              });
         }
     }
-
-    //public class ClusterData : Offer
-    //{
-    //    [Column("7")]
-    //    public string LastName { get; set; }
-
-    //    public int Count { get; set; } = 1;
-    //}
 }
