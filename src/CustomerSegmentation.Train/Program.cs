@@ -17,10 +17,12 @@ namespace CustomerSegmentation
             var transactionsCsv = Path.Combine(assetsPath, "inputs", "transactions.csv");
             var offersCsv = Path.Combine(assetsPath, "inputs", "offers.csv");
             var modelZip = Path.Combine(assetsPath, "outputs", "retailClustering.zip");
+            var kValuesSvg = Path.Combine(assetsPath, "outputs", "kValues.svg");
 
             try
             {
-                var modelBuilder = new ModelBuilder(transactionsCsv, offersCsv, modelZip);
+                var modelBuilder = new ModelBuilder(transactionsCsv, offersCsv, modelZip, kValuesSvg);
+                //modelBuilder.CalculateK();
                 await modelBuilder.BuildAndTrain();
             } catch (Exception ex)
             {

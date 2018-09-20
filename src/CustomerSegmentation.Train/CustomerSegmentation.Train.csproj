@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="0.5.0" />
     <PackageReference Include="Microsoft.ML.CpuMath" Version="0.5.0" />
+    <PackageReference Include="OxyPlot.Core" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

@@ -58,11 +58,10 @@ namespace CustomerSegmentation.Model
         {
             ConsoleWriteHeader("Metrics for Customer Segmentation");
             var testDataSource = CollectionDataSource.Create(testData);
-            var evaluator = new ClusterEvaluator();
+            var evaluator = new ClusterEvaluator { CalculateDbi = true };
             ClusterMetrics metrics = evaluator.Evaluate(model, testDataSource);
             Console.WriteLine($"Average mean score: {metrics.AvgMinScore:0.##}");
-            //Console.WriteLine($"*       Davies-Bouldin Index: {metrics.Dbi:#.##}");
-            //Console.WriteLine($"*       Normalized mutual information: {metrics.Nmi:#.##}");
+            Console.WriteLine($"Davies-Bouldin Index: {metrics.Dbi:0.##}");
         }
 
         private static void SaveCustomerSegmentationPlot(IEnumerable<ClusteringPrediction> predictions, string plotLocation)

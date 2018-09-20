@@ -5,9 +5,13 @@ using Microsoft.ML.Data;
 using Microsoft.ML.Trainers;
 using Microsoft.ML.Transforms;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using static CustomerSegmentation.Model.ModelHelpers;
+using Microsoft.ML.Models;
+using OxyPlot;
+using OxyPlot.Series;
+using System.Linq;
+using OxyPlot.Axes;
 
 namespace CustomerSegmentation.Model
 {
@@ -16,15 +20,17 @@ namespace CustomerSegmentation.Model
         private readonly string transactionsDataLocation;
         private readonly string offersDataLocation;
         private readonly string modelLocation;
+        private readonly string plotLocation;
 
-        public ModelBuilder(string transactionsDataLocation, string offersDataLocation, string modelLocation)
+        public ModelBuilder(string transactionsDataLocation, string offersDataLocation, string modelLocation, string plotLocation)
         {
             this.transactionsDataLocation = transactionsDataLocation;
             this.offersDataLocation = offersDataLocation;
             this.modelLocation = modelLocation;
+            this.plotLocation = plotLocation;
         }
 
-        public async Task BuildAndTrain(int kClusters = 4)
+        public async Task BuildAndTrain(int kClusters = 8)
         {
             var preProcessData = DataHelpers.PreProcess(offersDataLocation, transactionsDataLocation);
 
@@ -36,6 +42,24 @@ namespace CustomerSegmentation.Model
             {
                 await SaveModel(model);
             }
+        }
+
+        public void CalculateK(int maxK = 20)
+        {
+            ConsoleWriteHeader("Calculate best K value");
+            var preProcessData = DataHelpers.PreProcess(offersDataLocation, transactionsDataLocation).ToArray();
+            var kValues = new Dictionary<int, double>();
+
+            for (int k = 2; k <= maxK; k++)
+            {
+                Console.WriteLine($"Building model for k={k}");
+                var learningPipeline = BuildModel(preProcessData, k);
+                var model = TrainModel(learningPipeline);
+                var loss = EvaluateModel(preProcessData, model);
+                kValues.Add(k, loss);
+            }
+
+            PlotKValues(kValues, plotLocation);
         }
 
         private async Task SaveModel(PredictionModel<PivotData, ClusteringPrediction> model)
@@ -72,8 +96,6 @@ namespace CustomerSegmentation.Model
             // http://ufldl.stanford.edu/wiki/index.php/PCA
             pipeline.Add(new PcaCalculator(("Features", "PCAFeatures")) { Rank = 2, Seed = 42 });
 
-            //pipeline.Add(new ColumnConcatenator("Features", "NumericalFeatures", "PCAFeatures"));
-
             // The Learner is the last element in the pipeline. In this case, we use a k-Means algorithm
             // that is able to do unsupervised learning. The output of this learner will be a model 
             // that will classify samples in different categories. One drawback from this algorithm is that
@@ -83,5 +105,37 @@ namespace CustomerSegmentation.Model
 
             return pipeline;
         }
+
+        public double EvaluateModel(IEnumerable<PivotData> testData, PredictionModel<PivotData, ClusteringPrediction> model)
+        {
+            var testDataSource = CollectionDataSource.Create(testData);
+            var evaluator = new ClusterEvaluator { CalculateDbi = true };
+            ClusterMetrics metrics = evaluator.Evaluate(model, testDataSource);
+            return metrics.AvgMinScore;
+        }
+
+        protected void PlotKValues(Dictionary<int,double> kValues, string plotLocation)
+        {
+            ConsoleWriteHeader("Plot Customer Segmentation");
+
+            var plot = new PlotModel { Title = "elbow method", IsLegendVisible = true };
+
+            var lineSeries = new LineSeries() { Title = $"kValues ({kValues.Keys.Max()})" };
+            foreach (var item in kValues)
+                lineSeries.Points.Add(new DataPoint(item.Key, item.Value));
+
+            plot.Series.Add(lineSeries);
+            plot.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Minimum = -0.1, Title = "k" });
+            plot.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Minimum = -0.1, Title = "loss" });
+
+            var exporter = new SvgExporter { Width = 600, Height = 400 };
+            using (var fs = new System.IO.FileStream(plotLocation, System.IO.FileMode.Create))
+            {
+                exporter.Export(plot, fs);
+            }
+
+            Console.WriteLine($"Plot location: {plotLocation}");
+        }
+
     }
 }
