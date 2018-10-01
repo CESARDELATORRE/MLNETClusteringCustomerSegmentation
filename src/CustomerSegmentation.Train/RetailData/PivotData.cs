@@ -1,4 +1,8 @@
-﻿using Microsoft.ML.Runtime.Api;
+﻿using CustomerSegmentation.Model;
+using Microsoft.ML.Runtime.Api;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace CustomerSegmentation.RetailData
 {
@@ -68,6 +72,27 @@ namespace CustomerSegmentation.RetailData
         public float C31 { get; set; }
         [Column("31")]
         public float C32 { get; set; }
-    }
+        [Column("32")]
+        public string LastName { get; set; }
 
+        public override string ToString()
+        {
+            return $"{C1},{C2},{C3},{C4},{C5},{C6},{C7},{C8},{C9}," +
+                   $"{C10},{C11},{C12},{C13},{C14},{C15},{C16},{C17},{C18},{C19}," +
+                   $"{C20},{C21},{C22},{C23},{C24},{C25},{C26},{C27},{C28},{C29}," +
+                   $"{C31},{LastName}";
+        }
+
+        public static void SaveToCsv(IEnumerable<PivotData> salesData, string file)
+        {
+            var columns = "C1,C2,C3,C4,C5,C6,C8,C9," +
+                          "C10,C11,C12,C13,C14,C15,C16,C17,C18,C19," +
+                          "C20,C21,C22,C23,C24,C25,C26,C27,C28,C29," +
+                          $"C30,C31,{nameof(LastName)}";
+
+            File.WriteAllLines(file, salesData
+                .Select(s => s.ToString())
+                .Prepend(columns));
+        }
+    }
 }

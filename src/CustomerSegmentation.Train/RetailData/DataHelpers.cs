@@ -2,12 +2,19 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using static CustomerSegmentation.Model.ModelHelpers;
+using static CustomerSegmentation.Model.ConsoleHelpers;
 
 namespace CustomerSegmentation.RetailData
 {
     public class DataHelpers
     {
+        public static IEnumerable<PivotData> PreProcessAndSave(string offersDataLocation, string transactionsDataLocation, string pivotDataLocation)
+        {
+            var preProcessData = PreProcess(offersDataLocation, transactionsDataLocation);
+            PivotData.SaveToCsv(preProcessData, pivotDataLocation);
+            return preProcessData;
+        }
+
         public static IEnumerable<PivotData> PreProcess(string offersDataLocation, string transactionsDataLocation)
         {
             ConsoleWriteHeader("Preprocess input files");
@@ -41,6 +48,7 @@ namespace CustomerSegmentation.RetailData
                  let lookup = gcs.ToLookup(y => y.OfferId, y => y.Count)
                  select new PivotData()
                  {
+                     LastName = gcs.Key,
                      C1 = (float)lookup["1"].Sum(),
                      C2 = (float)lookup["2"].Sum(),
                      C3 = (float)lookup["3"].Sum(),

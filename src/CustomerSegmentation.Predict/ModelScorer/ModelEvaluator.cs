@@ -1,0 +1,86 @@
+﻿using CustomerSegmentation.RetailData;
+using Microsoft.ML.Core.Data;
+using Microsoft.ML.Runtime.Api;
+using Microsoft.ML.Runtime.Data;
+using OxyPlot;
+using OxyPlot.Series;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using static CustomerSegmentation.Model.ConsoleHelpers;
+
+namespace CustomerSegmentation.Model
+{
+    public class ModelEvaluator
+    {
+        private readonly string pivotDataLocation;
+        private readonly string modelLocation;
+        private readonly string plotLocation;
+        private readonly LocalEnvironment env;
+
+        public ModelEvaluator(string pivotDataLocation, string modelLocation, string plotLocation)
+        {
+            this.pivotDataLocation = pivotDataLocation;
+            this.modelLocation = modelLocation;
+            this.plotLocation = plotLocation;
+            env = new LocalEnvironment(seed: 1);  //Seed set to any number so you have a deterministic environment
+        }
+
+        public void Evaluate()
+        {
+            ITransformer model;
+            using (var file = File.OpenRead(modelLocation))
+            {
+                model = TransformerChain
+                    .LoadFrom(env, file);
+            }
+
+            var reader = TextLoader.CreateReader(env,
+                c => (
+                    Features: c.LoadFloat(0, 29),
+                    LastName: c.LoadText(30)),
+                    separator: ',', hasHeader: true);
+
+            ConsoleWriteHeader("Read model");
+            Console.WriteLine($"Model location: {modelLocation}");
+
+            ConsoleWriteHeader("Calculate customer segmentation");
+            var predictions = model
+                .Transform(reader.Read(new MultiFileSource(pivotDataLocation)).AsDynamic)
+                .AsEnumerable<ClusteringPrediction>(env, false)
+                .ToArray();
+
+            SaveCustomerSegmentationPlot(predictions, plotLocation);
+        }
+
+        private static void SaveCustomerSegmentationPlot(IEnumerable<ClusteringPrediction> predictions, string plotLocation)
+        {
+            ConsoleWriteHeader("Plot Customer Segmentation");
+
+            var plot = new PlotModel { Title = "Customer Segmentation", IsLegendVisible = true };
+
+            var clusters = predictions.Select(p => p.SelectedClusterId).Distinct().OrderBy(x => x);
+
+            foreach (var cluster in clusters)
+            {
+                var scatter = new ScatterSeries { MarkerType = MarkerType.Circle, MarkerStrokeThickness = 2, Title = $"Cluster: {cluster}", RenderInLegend=true };
+                var series = predictions
+                    .Where(p => p.SelectedClusterId == cluster)
+                    .Select(p => new ScatterPoint(p.Location[0], p.Location[1])).ToArray();
+                scatter.Points.AddRange(series);
+                plot.Series.Add(scatter);
+            }
+
+            plot.DefaultColors = OxyPalettes.HueDistinct(plot.Series.Count).Colors;
+
+            var exporter = new SvgExporter { Width = 600, Height = 400 };
+            using (var fs = new System.IO.FileStream(plotLocation, System.IO.FileMode.Create))
+            {
+                exporter.Export(plot, fs);
+            }
+
+            Console.WriteLine($"Plot location: {plotLocation}");
+        }
+    }
+}

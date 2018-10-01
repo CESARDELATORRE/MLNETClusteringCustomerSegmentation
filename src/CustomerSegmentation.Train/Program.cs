@@ -2,6 +2,8 @@
 using CustomerSegmentation.Model;
 using System.IO;
 using System.Threading.Tasks;
+using CustomerSegmentation.RetailData;
+using static CustomerSegmentation.Model.ConsoleHelpers;
 
 namespace CustomerSegmentation
 {
@@ -9,27 +11,26 @@ namespace CustomerSegmentation
     {
         static async Task Main(string[] args)
         {
-            // Running inside Visual Studio, $SolutionDir/assets is automatically passed as argument
-            // If you execute from the console, pass as argument the location of the assets folder
-            // Otherwise, it will search for assets in the executable's folder
-            var assetsPath = args.Length > 0 ? args[0] : ModelHelpers.GetAssetsPath();
+            var assetsPath = ModelHelpers.GetAssetsPath(@"..\..\..\assets");
 
             var transactionsCsv = Path.Combine(assetsPath, "inputs", "transactions.csv");
             var offersCsv = Path.Combine(assetsPath, "inputs", "offers.csv");
+            var pivotCsv = Path.Combine(assetsPath, "inputs", "pivot.csv");
             var modelZip = Path.Combine(assetsPath, "outputs", "retailClustering.zip");
             var kValuesSvg = Path.Combine(assetsPath, "outputs", "kValues.svg");
 
             try
             {
-                var modelBuilder = new ModelBuilder(transactionsCsv, offersCsv, modelZip, kValuesSvg);
+                DataHelpers.PreProcessAndSave(offersCsv, transactionsCsv, pivotCsv);
+                var modelBuilder = new ModelBuilder(pivotCsv, modelZip, kValuesSvg);
                 //modelBuilder.CalculateK();
-                await modelBuilder.BuildAndTrain();
+                modelBuilder.BuildAndTrain();
             } catch (Exception ex)
             {
-                Console.WriteLine($"Exception: {ex.Message}");
+                ConsoleWriteException(ex.Message);
             }
 
-            Console.ReadKey();
+            ConsolePressAnyKey();
         }
     }
 }
