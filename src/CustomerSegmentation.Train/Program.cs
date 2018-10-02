@@ -23,7 +23,6 @@ namespace CustomerSegmentation
             {
                 DataHelpers.PreProcessAndSave(offersCsv, transactionsCsv, pivotCsv);
                 var modelBuilder = new ModelBuilder(pivotCsv, modelZip, kValuesSvg);
-                //modelBuilder.CalculateK();
                 modelBuilder.BuildAndTrain();
             } catch (Exception ex)
             {

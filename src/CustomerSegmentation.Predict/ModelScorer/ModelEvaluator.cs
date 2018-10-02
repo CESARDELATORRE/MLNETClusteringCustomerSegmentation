@@ -38,8 +38,8 @@ namespace CustomerSegmentation.Model
 
             var reader = TextLoader.CreateReader(env,
                 c => (
-                    Features: c.LoadFloat(0, 29),
-                    LastName: c.LoadText(30)),
+                    Features: c.LoadFloat(0, 31),
+                    LastName: c.LoadText(32)),
                     separator: ',', hasHeader: true);
 
             ConsoleWriteHeader("Read model");

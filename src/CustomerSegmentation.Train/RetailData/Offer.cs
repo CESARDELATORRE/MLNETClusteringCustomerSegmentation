@@ -10,19 +10,12 @@ namespace CustomerSegmentation.RetailData
     public class Offer
     {
         //Offer #,Campaign,Varietal,Minimum Qty (kg),Discount (%),Origin,Past Peak
-        [Column("0")]
         public string OfferId { get; set; }
-        [Column("1")]
         public string Campaign { get; set; }
-        [Column("2")]
         public string Varietal { get; set; }
-        [Column("3")]
         public float Minimum { get; set; }
-        [Column("4")]
         public float Discount { get; set; }
-        [Column("5")]
         public string Origin { get; set; }
-        [Column("6")]
         public string LastPeak { get; set; }
 
         public static IEnumerable<Offer> ReadFromCsv(string file)

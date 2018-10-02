@@ -35,8 +35,10 @@ The algorithm used for this task is K-Means. In short, this algorithm assign sam
 * all points belonging to the cluster have similar properties (but these properties does not necessarily directly map to the features used for training, and are often objective of further data analysis)
 
 The following picture shows a clustered data distribution, and then, how k-Means is able to re-build data clusters.
-![]](./docs/k-means.png)
-From the former figure, one question arises: how can we plot a sample formed by different features in a 2 dimensional space? This is a problem called "dimensionality reduction": each sample belongs to a dimensional space formed by each of his features (offer, campaign, etc), and our objective is a function that translates from the former space to another space (usually, with much less features, in our case, only two: X and Y). In this case, we will use a common technique called PCA, but there exists similar techniques, like SVD which can be used for the same purpose.
+
+![](./docs/k-means.png)
+
+From the former figure, one question arises: how can we plot a sample formed by different features in a 2 dimensional space? This is a problem called "dimensionality reduction": each sample belongs to a dimensional space formed by each of his features (offer, campaign, etc), so we need a function that "translates" observation from the former space to another space (usually, with much less features, in our case, only two: X and Y). In this case, we will use a common technique called PCA, but there exists similar techniques, like SVD which can be used for the same purpose.
 
 ## Solution
 In the root folder, there are two folders: 
@@ -51,7 +53,7 @@ The second step is to get the actual customer clusters. For this, set the projec
 
 ## Code Walkthrough
 
-### ML.NET: Model creation
+### Data Pre-Processing
 The first thing is to join the data into a single view. Because we need to compare transactions made the users, we will build a pivot table, where the rows are the customers and the columns are the campaigns, and the cell value shows if the customer made some transaction in during that campaign.
 The pivot table is built executing PreProcess function:
 ```csharp
@@ -85,41 +87,76 @@ var pivotDataArray =
       };
 ```
 
+The data is saved into the file `pivot.csv`, and it looks like the following table:
+
+|C1|C2|C3|C4|C5|C6|C8|C9|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C27|C28|C29|C30|C31|C32|LastName|
+|--|--|--|--|--|--|--|--|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|--------|
+|1|0|0|1|0|0|0|0|1|0|1|0|0|1|0|0|0|0|0|0|0|0|0|0|0|1|0|0|0|0|0|0|Thomas|
+|1|1|0|0|0|0|0|0|0|0|1|0|0|0|1|0|0|0|0|0|0|1|0|0|0|0|0|0|0|0|0|0|Jackson|
+|1|1|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|Mitchell|
+
+
+### ML.NET: Model creation
 Next, the learning pipeline is built in the method BuildModel.
 ```csharp
-var pipeline = new LearningPipeline();
+// Reading file
+var reader = TextLoader.CreateReader(env,
+                c => (
+                    Features: c.LoadFloat(0, 31),
+                    LastName: c.LoadText(32)),
+                separator: ',', hasHeader: true);
 
-pipeline.Add(CollectionDataSource.Create(pivotData));
+var clustering = new ClusteringContext(env);
 
-var columnsNumerical = ModelHelpers.ColumnsNumerical<PivotData>();
-pipeline.Add(new ColumnConcatenator(outputColumn: "Features", columnsNumerical));
-
-pipeline.Add(new PcaCalculator(("Features", "PCAFeatures")) { Rank = 2, Seed = 42 });
-
-pipeline.Add(new KMeansPlusPlusClusterer() { K = kClusters });
+var est = reader.MakeNewEstimator()
+    .Append(row => (row.LastName, LastNameKey: row.LastName.ToKey(), row.Features, PCAFeatures: row.Features.ToPrincipalComponents(rank: 2, (p) => p.Seed = 42)))
+    .Append(row => (
+        row.LastName, 
+        row.LastNameKey, 
+        row.PCAFeatures, 
+        row.Features,
+        preds: clustering.Trainers.KMeans(row.Features, clustersCount: kClusters)
+    ));
 ```
-The pipeline takes as argument the pre-processed data as a pivot table, transforms the data to get the PCA features (parameter `Rank` represents the number of dimensions to reduce to) and finally, adds the k-Means learner to the pipeline (`K` parameter specifies the number of clusters).
+In this case, `TextLoader` is not defining explicitly each column, but declares a Features property made by the first 30 columns of the file; also declares the property LastName to the value of the last column.
+
+Then, you need to apply some transformations to the data:
+1) add a PCA column, using the `.ToPrincipalComponents()` extension method, passing as parameter `rank: 2`, which means that we are reducing the features from 32 to 2 dimensions (*x* and *y*)
+2) add a preds column, which holds the results of the KMeans algorithm, using the `clustering.Trainers.KMeans()`; main parameter to use with this learner is `clustersCount`, that specifies the number of clusters
 
 After building the pipeline, we train the customer segmentation model:
 ```csharp
-var model = pipeline.Train<PivotData, ClusteringPrediction>();
+var dataSource = reader.Read(new MultiFileSource(pivotLocation));
+var model = est.Fit(dataSource);
 ```
 
-Finally, we save the model to local disk:
+Finally, we save the model to local disk using the dynamic API:
 ```csharp
-await model.WriteAsync(modelLocation);
+using (var f = new FileStream(modelLocation, FileMode.Create))
+    model.AsDynamic.SaveTo(env, f);
 ```
 
 Additionally, we evaluate the accuracy of the model. This accuracy is measured using the [ClusterEvaluator](#), and the [Accuracy](https://en.wikipedia.org/wiki/Confusion_matrix) and [AUC](https://loneharoon.wordpress.com/2016/08/17/area-under-the-curve-auc-a-performance-metric/) metrics are displayed.
+
+```csharp
+// Evaluate model
+var metrics = clustering.Evaluate(data, r => r.preds.score, r => r.LastNameKey, r => r.Features);
+```
 
 ### ML.Net: Model Prediction
 
 The model created during last step is used in the project `CustomerSegmentation.Predict`. Basically, the `ModelEvaluator.Evaluate()` method executes the following code:
 ```csharp
-var preProcessData = DataHelpers.PreProcess(offersDataLocation, transactionsDataLocation);
-var model = await PredictionModel.ReadAsync<PivotData, ClusteringPrediction>(modelLocation);
-var predictions = model.Predict(preProcessData);
+var reader = TextLoader.CreateReader(env,
+    c => (
+        Features: c.LoadFloat(0, 31),
+        LastName: c.LoadText(32)),
+        separator: ',', hasHeader: true);
+
+var predictions = model
+    .Transform(reader.Read(new MultiFileSource(pivotDataLocation)).AsDynamic)
+    .AsEnumerable<ClusteringPrediction>(env, false)
+    .ToArray();
 ```
-As in the previous step, we need to realize the same data pre-processing, and then, we load the model from local disk and make the predictions for getting customer's clusters.
 
 Additionally, the method `SaveCustomerSegmentationPlot()` saves an scatter plot drawing the samples in each assigned cluster, using the [OxyPlot](http://www.oxyplot.org/) library.

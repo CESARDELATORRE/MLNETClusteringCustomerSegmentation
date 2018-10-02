@@ -1,19 +1,11 @@
 ﻿using System;
-using CustomerSegmentation.RetailData;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using static CustomerSegmentation.Model.ConsoleHelpers;
-using OxyPlot;
-using OxyPlot.Series;
 using System.Linq;
-using OxyPlot.Axes;
-using Microsoft.ML.Runtime.KMeans;
 using Microsoft.ML;
 using Microsoft.ML.Runtime.Api;
 using Microsoft.ML.Runtime.Data;
 using Microsoft.ML.StaticPipe;
 using System.IO;
-using Microsoft.ML.Core.Data;
 
 namespace CustomerSegmentation.Model
 {
@@ -48,21 +40,24 @@ namespace CustomerSegmentation.Model
             ConsoleWriteHeader("Reading file ...");
             var reader = TextLoader.CreateReader(env,
                             c => (
-                                Features: c.LoadFloat(0, 29),
-                                LastName: c.LoadText(30)),
+                                Features: c.LoadFloat(0, 31),
+                                LastName: c.LoadText(32)),
                             separator: ',', hasHeader: true);
 
-            KMeansPredictor pred = null;
             var clustering = new ClusteringContext(env);
 
             var est = reader.MakeNewEstimator()
-                .Append(row => (row.LastName, LastNameKey: row.LastName.ToKey(), row.Features, PCAFeatures: row.Features.ToPrincipalComponents(rank: 2, (p) => p.Seed = 42)))
-                .Append(row => (row.LastName, row.LastNameKey, row.PCAFeatures, row.Features,
-                preds: clustering.Trainers.KMeans(
-                    row.Features, clustersCount: kClusters,
-                    onFit: p => pred = p)));
+                .Append(row => (row.LastName, 
+                                LastNameKey: row.LastName.ToKey(), 
+                                row.Features, 
+                                PCAFeatures: row.Features.ToPrincipalComponents(rank: 2, (p) => p.Seed = 42)))
+                .Append(row => (row.LastName, 
+                                row.LastNameKey, 
+                                row.PCAFeatures, 
+                                row.Features,
+                                preds: clustering.Trainers.KMeans(row.Features, clustersCount: kClusters)));
 
-            ConsoleWriteHeader("Training model for recommendations");
+            ConsoleWriteHeader("Training model for customer clustering");
             var dataSource = reader.Read(new MultiFileSource(pivotLocation));
 
             var model = est.Fit(dataSource);
@@ -83,38 +78,6 @@ namespace CustomerSegmentation.Model
             using (var f = new FileStream(modelLocation, FileMode.Create))
                 model.AsDynamic.SaveTo(env, f);
             Console.WriteLine($"Model saved: {modelLocation}");
-
-
-            ITransformer testPredictor;
-            using (var file = File.OpenRead(modelLocation))
-            {
-                testPredictor = TransformerChain
-                    .LoadFrom(env, file);
-            }
         }
-
-        //protected void PlotKValues(Dictionary<int,double> kValues, string plotLocation)
-        //{
-        //    ConsoleWriteHeader("Plot Customer Segmentation");
-
-        //    var plot = new PlotModel { Title = "elbow method", IsLegendVisible = true };
-
-        //    var lineSeries = new LineSeries() { Title = $"kValues ({kValues.Keys.Max()})" };
-        //    foreach (var item in kValues)
-        //        lineSeries.Points.Add(new DataPoint(item.Key, item.Value));
-
-        //    plot.Series.Add(lineSeries);
-        //    plot.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, Minimum = -0.1, Title = "k" });
-        //    plot.Axes.Add(new LinearAxis { Position = AxisPosition.Left, Minimum = -0.1, Title = "loss" });
-
-        //    var exporter = new SvgExporter { Width = 600, Height = 400 };
-        //    using (var fs = new System.IO.FileStream(plotLocation, System.IO.FileMode.Create))
-        //    {
-        //        exporter.Export(plot, fs);
-        //    }
-
-        //    Console.WriteLine($"Plot location: {plotLocation}");
-        //}
-
     }
 }

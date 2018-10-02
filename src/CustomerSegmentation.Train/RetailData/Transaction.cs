@@ -9,9 +9,7 @@ namespace CustomerSegmentation.RetailData
     {
         //Customer Last Name,Offer #
         //Smith,2
-        [Column("0")]
         public string LastName { get; set; }
-        [Column("1")]
         public string OfferId { get; set; }
 
         public static IEnumerable<Transaction> ReadFromCsv(string file)
