@@ -49,7 +49,7 @@ The  main solution `CustomerSegmentation.sln` is inside the src folder, and cont
 
 The second step is to get the actual customer clusters. For this, set the project `CustomerSegmentation.Predict` as Startup project, and hit F5. After executing the predict console app, a plot will be generated in the assets/output folder, showing the cluster distribution (similar to the following figure):
 
-![customer segmentation](./assets/outputs/customerSegmentation.svg)
+![customer segmentation](./src/CustomerSegmentation.Predict/assets/outputs/customerSegmentation.svg)
 
 ## Code Walkthrough
 

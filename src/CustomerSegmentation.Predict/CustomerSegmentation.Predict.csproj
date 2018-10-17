@@ -22,13 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="assets\outputs\" />
     <Folder Include="RetailData\" />
-    <Content Include="..\..\assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Remove="..\..\assets\assets\**" />
   </ItemGroup>
 
 </Project>
