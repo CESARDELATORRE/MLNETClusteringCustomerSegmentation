@@ -94,47 +94,45 @@ The data is saved into the file `pivot.csv`, and it looks like the following tab
 Next, the learning pipeline is built in the method `BuildModel`.
 ```csharp
 // Reading file
-var reader = TextLoader.CreateReader(env,
-                c => (
-                    Features: c.LoadFloat(0, 31),
-                    LastName: c.LoadText(32)),
-                separator: ',', hasHeader: true);
+ var reader = new TextLoader(env,
+    new TextLoader.Arguments
+    {
+        Column = new[] {
+            new TextLoader.Column("Features", DataKind.R4, new[] {new TextLoader.Range(0, 31) }),
+            new TextLoader.Column("LastName", DataKind.Text, 32)
+        },
+        HasHeader = true,
+        Separator = ","
+    });
 
-var clustering = new ClusteringContext(env);
-
-var est = reader.MakeNewEstimator()
-    .Append(row => (row.LastName, LastNameKey: row.LastName.ToKey(), row.Features, PCAFeatures: row.Features.ToPrincipalComponents(rank: 2, (p) => p.Seed = 42)))
-    .Append(row => (
-        row.LastName, 
-        row.LastNameKey, 
-        row.PCAFeatures, 
-        row.Features,
-        preds: clustering.Trainers.KMeans(row.Features, clustersCount: kClusters)
-    ));
+ var estrimator = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
+    .Append(new CategoricalEstimator(env, new[] { new CategoricalEstimator.ColumnInfo("LastName", "LastNameKey", CategoricalTransform.OutputKind.Ind) }))
+    .Append(new KMeansPlusPlusTrainer(env, "Features", clustersCount: kClusters));
 ```
 In this case, `TextLoader` doesn't define explicitly each column, but declares a `Features` property made by the first 30 columns of the file; also declares the property `LastName` to the value of the last column.
 
 Then, you need to apply some transformations to the data:
-1) add a PCA column, using the `.ToPrincipalComponents()` extension method, passing as parameter `rank: 2`, which means that we are reducing the features from 32 to 2 dimensions (*x* and *y*)
-2) add a preds column, which holds the results of the KMeans algorithm, using the `clustering.Trainers.KMeans()`; main parameter to use with this learner is `clustersCount`, that specifies the number of clusters
+1) add a PCA column, using the `PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)` Estimator, passing as parameter `rank: 2`, which means that we are reducing the features from 32 to 2 dimensions (*x* and *y*)
+2) add a KMeansPlusPlusTrainer; main parameter to use with this learner is `clustersCount`, that specifies the number of clusters
 
 ### 2. Train model
 After building the pipeline, we train the customer segmentation model:
 ```csharp
-var dataSource = reader.Read(new MultiFileSource(pivotLocation));
-var model = est.Fit(dataSource);
+ var dataSource = reader.Read(new MultiFileSource(pivotLocation));
+ var model = estrimatord.Fit(dataSource);
 ```
 ### 3. Evaluate model
 We evaluate the accuracy of the model. This accuracy is measured using the [ClusterEvaluator](#), and the [Accuracy](https://en.wikipedia.org/wiki/Confusion_matrix) and [AUC](https://loneharoon.wordpress.com/2016/08/17/area-under-the-curve-auc-a-performance-metric/) metrics are displayed.
 
 ```csharp
 // Evaluate model
-var metrics = clustering.Evaluate(data, r => r.preds.score, r => r.LastNameKey, r => r.Features);
+ var clustering = new ClusteringContext(env);
+ var metrics = clustering.Evaluate(data, score: "Score", features: "Features");
 ```
 Finally, we save the model to local disk using the dynamic API:
 ```csharp
 using (var f = new FileStream(modelLocation, FileMode.Create))
-    model.AsDynamic.SaveTo(env, f);
+    model.SaveTo(env, f);
 ```
 #### Model training
 Once you open the solution in Visual Studio, first step is to create the customer segmentation model. Start by settings the project `CustomerSegmentation.Train` as Startup project in Visual Studio, and then hit F5. A console application will appear and it will create the model (and saved in the [assets/output](./src/CustomerSegmentation.Train/assets/outputs/) folder). The output of the console will look similar to the following screenshot:
@@ -143,23 +141,31 @@ Once you open the solution in Visual Studio, first step is to create the custome
 ### 4. Consume model
 The model created during last step is used in the project `CustomerSegmentation.Predict`. Basically, we load the model, then the data file and finally we call Transform to execute the model on the data:
 ```csharp
-ITransformer model;
-using (var file = File.OpenRead(modelLocation))
-{
-    model = TransformerChain
+ ITransformer model;
+ using (var file = File.OpenRead(modelLocation))
+ {
+     model = TransformerChain
         .LoadFrom(env, file);
-}
+ }
+            
+ var reader = new TextLoader(env,
+     new TextLoader.Arguments
+     {
+         Column = new[] {
+             new TextLoader.Column("Features", DataKind.R4, new[] {new TextLoader.Range(0, 31) }),
+             new TextLoader.Column("LastName", DataKind.Text, 32)
+         },
+         HasHeader = true,
+         Separator = ","
+     });
 
-var reader = TextLoader.CreateReader(env,
-    c => (
-        Features: c.LoadFloat(0, 31),
-        LastName: c.LoadText(32)),
-        separator: ',', hasHeader: true);
+ ConsoleWriteHeader("Read model");
+ Console.WriteLine($"Model location: {modelLocation}");
+ var data = reader.Read(new MultiFileSource(pivotDataLocation));
 
-var predictions = model
-    .Transform(reader.Read(new MultiFileSource(pivotDataLocation)).AsDynamic)
-    .AsEnumerable<ClusteringPrediction>(env, false)
-    .ToArray();
+ var predictions = model.Transform(datad)
+                 .AsEnumerable<ClusteringPrediction>(env, false)
+                 .ToArray();
 ```
 
 Additionally, the method `SaveCustomerSegmentationPlot()` saves an scatter plot drawing the samples in each assigned cluster, using the [OxyPlot](http://www.oxyplot.org/) library.

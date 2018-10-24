@@ -35,23 +35,28 @@ namespace CustomerSegmentation.Model
                 model = TransformerChain
                     .LoadFrom(env, file);
             }
-
-            var reader = TextLoader.CreateReader(env,
-                c => (
-                    Features: c.LoadFloat(0, 31),
-                    LastName: c.LoadText(32)),
-                    separator: ',', hasHeader: true);
+            
+            var reader = new TextLoader(env,
+                new TextLoader.Arguments
+                {
+                    Column = new[] {
+                        new TextLoader.Column("Features", DataKind.R4, new[] {new TextLoader.Range(0, 31) }),
+                        new TextLoader.Column("LastName", DataKind.Text, 32)
+                    },
+                    HasHeader = true,
+                    Separator = ","
+                });
 
             ConsoleWriteHeader("Read model");
             Console.WriteLine($"Model location: {modelLocation}");
+            var data = reader.Read(new MultiFileSource(pivotDataLocation));
 
-            ConsoleWriteHeader("Calculate customer segmentation");
-            var predictions = model
-                .Transform(reader.Read(new MultiFileSource(pivotDataLocation)).AsDynamic)
-                .AsEnumerable<ClusteringPrediction>(env, false)
-                .ToArray();
+            var predictions = model.Transform(data)
+                            .AsEnumerable<ClusteringPrediction>(env, false)
+                            .ToArray();
 
             SaveCustomerSegmentationPlot(predictions, plotLocation);
+            
         }
 
         private static void SaveCustomerSegmentationPlot(IEnumerable<ClusteringPrediction> predictions, string plotLocation)

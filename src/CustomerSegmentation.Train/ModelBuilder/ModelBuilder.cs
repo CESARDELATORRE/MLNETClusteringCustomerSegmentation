@@ -4,7 +4,7 @@ using System.Linq;
 using Microsoft.ML;
 using Microsoft.ML.Runtime.Api;
 using Microsoft.ML.Runtime.Data;
-using Microsoft.ML.StaticPipe;
+using Microsoft.ML.Runtime.KMeans;
 using System.IO;
 
 namespace CustomerSegmentation.Model
@@ -32,52 +32,52 @@ namespace CustomerSegmentation.Model
             public float[] Score;
         }
 
-        public void BuildAndTrain(int kClusters = 4)
+        public void BuildAndTrain(int kClusters = 3)
         {
             ConsoleWriteHeader("Build and Train using Static API");
             Console.Out.WriteLine($"Input file: {pivotLocation}");
 
             ConsoleWriteHeader("Reading file ...");
-            var reader = TextLoader.CreateReader(env,
-                            c => (
-                                Features: c.LoadFloat(0, 31),
-                                LastName: c.LoadText(32)),
-                            separator: ',', hasHeader: true);
+            var reader = new TextLoader(env,
+                new TextLoader.Arguments
+                {
+                    Column = new[] {
+                        new TextLoader.Column("Features", DataKind.R4, new[] {new TextLoader.Range(0, 31) }),
+                        new TextLoader.Column("LastName", DataKind.Text, 32)
+                    },
+                    HasHeader = true,
+                    Separator = ","
+                });
 
-            var clustering = new ClusteringContext(env);
 
-            var est = reader.MakeNewEstimator()
-                .Append(row => (row.LastName, 
-                                LastNameKey: row.LastName.ToKey(), 
-                                row.Features, 
-                                PCAFeatures: row.Features.ToPrincipalComponents(rank: 2, (p) => p.Seed = 42)))
-                .Append(row => (row.LastName, 
-                                row.LastNameKey, 
-                                row.PCAFeatures, 
-                                row.Features,
-                                preds: clustering.Trainers.KMeans(row.Features, clustersCount: kClusters)));
+            var estrimator = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
+            .Append(new CategoricalEstimator(env, new[] { new CategoricalEstimator.ColumnInfo("LastName", "LastNameKey", CategoricalTransform.OutputKind.Ind) }))
+            .Append(new KMeansPlusPlusTrainer(env, "Features", clustersCount: kClusters));
+
 
             ConsoleWriteHeader("Training model for customer clustering");
-            var dataSource = reader.Read(new MultiFileSource(pivotLocation));
 
-            var model = est.Fit(dataSource);
+            var dataSource = reader.Read(new MultiFileSource(pivotLocation));
+            var model = estrimator.Fit(dataSource);
+            var data = model.Transform(dataSource);
 
             // inspect data
-            var data = model.Transform(dataSource);
-            var trainData = data.AsDynamic;
-            var columnNames = trainData.Schema.GetColumnNames().ToArray();
-            var trainDataAsEnumerable = trainData.AsEnumerable<PivotPipelineData>(env, false).Take(10).ToArray();
+            var columnNames = data.Schema.GetColumnNames().ToArray();
+            var trainDataAsEnumerable = data.AsEnumerable<PivotPipelineData>(env, false).Take(10).ToArray();
 
             ConsoleWriteHeader("Evaluate model");
-            var metrics = clustering.Evaluate(data, r => r.preds.score, r => r.LastNameKey, r => r.Features);
+
+            var clustering = new ClusteringContext(env);
+            var metrics = clustering.Evaluate(data, score: "Score", features: "Features");
             Console.WriteLine($"AvgMinScore is: {metrics.AvgMinScore}");
             Console.WriteLine($"Dbi is: {metrics.Dbi}");
 
             ConsoleWriteHeader("Save model to local file");
             ModelHelpers.DeleteAssets(modelLocation);
             using (var f = new FileStream(modelLocation, FileMode.Create))
-                model.AsDynamic.SaveTo(env, f);
+                model.SaveTo(env, f);
             Console.WriteLine($"Model saved: {modelLocation}");
+
         }
     }
 }

@@ -1,13 +1,8 @@
-﻿using CustomerSegmentation.RetailData;
-using Microsoft.ML;
-using Microsoft.ML.Runtime;
-using Microsoft.ML.Runtime.Data;
+﻿using Microsoft.ML.Runtime.Data;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace CustomerSegmentation.Model
 {
