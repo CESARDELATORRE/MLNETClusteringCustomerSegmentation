@@ -17,13 +17,26 @@ namespace CustomerSegmentation
             var offersCsv = Path.Combine(assetsPath, "inputs", "offers.csv");
             var pivotCsv = Path.Combine(assetsPath, "inputs", "pivot.csv");
             var modelZip = Path.Combine(assetsPath, "outputs", "retailClustering.zip");
-            var kValuesSvg = Path.Combine(assetsPath, "outputs", "kValues.svg");
 
             try
             {
+
                 DataHelpers.PreProcessAndSave(offersCsv, transactionsCsv, pivotCsv);
-                var modelBuilder = new ModelBuilder(pivotCsv, modelZip, kValuesSvg);
-                modelBuilder.BuildAndTrain();
+
+                // STEP 1: Create and train a model
+                var modelBuilder = new ModelBuilder();
+                var model = modelBuilder.BuildAndTrain(pivotCsv);
+
+                // STEP2: Evaluate accuracy of the model
+                modelBuilder.Evaluate(pivotCsv, model);
+
+                // STEP3: Save model
+                modelBuilder.SaveModel(modelZip, model);
+
+                Console.WriteLine("Press any key to exit..");
+                Console.ReadLine();
+
+
             } catch (Exception ex)
             {
                 ConsoleWriteException(ex.Message);
