@@ -50,7 +50,7 @@ namespace CustomerSegmentation.Model
                 });
 
 
-            var estrimator = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
+            var pipeline = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
             .Append(new CategoricalEstimator(env, new[] { new CategoricalEstimator.ColumnInfo("LastName", "LastNameKey", CategoricalTransform.OutputKind.Ind) }))
             .Append(new KMeansPlusPlusTrainer(env, "Features", clustersCount: kClusters));
 
@@ -58,7 +58,7 @@ namespace CustomerSegmentation.Model
             ConsoleWriteHeader("Training model for customer clustering");
 
             var dataSource = reader.Read(new MultiFileSource(pivotLocation));
-            var model = estrimator.Fit(dataSource);
+            var model = pipeline.Fit(dataSource);
             var data = model.Transform(dataSource);
 
             // inspect data

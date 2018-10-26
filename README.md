@@ -105,7 +105,7 @@ Next, the learning pipeline is built in the method `BuildModel`.
         Separator = ","
     });
 
- var estrimator = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
+ var pipeline = new PcaEstimator(env, "Features", "PCAFeatures", rank: 2, advancedSettings: (p) => p.Seed = 42)
     .Append(new CategoricalEstimator(env, new[] { new CategoricalEstimator.ColumnInfo("LastName", "LastNameKey", CategoricalTransform.OutputKind.Ind) }))
     .Append(new KMeansPlusPlusTrainer(env, "Features", clustersCount: kClusters));
 ```
@@ -119,7 +119,7 @@ Then, you need to apply some transformations to the data:
 After building the pipeline, we train the customer segmentation model:
 ```csharp
  var dataSource = reader.Read(new MultiFileSource(pivotLocation));
- var model = estrimatord.Fit(dataSource);
+ var model = pipeline.Fit(dataSource);
 ```
 ### 3. Evaluate model
 We evaluate the accuracy of the model. This accuracy is measured using the [ClusterEvaluator](#), and the [Accuracy](https://en.wikipedia.org/wiki/Confusion_matrix) and [AUC](https://loneharoon.wordpress.com/2016/08/17/area-under-the-curve-auc-a-performance-metric/) metrics are displayed.
@@ -168,7 +168,9 @@ The model created during last step is used in the project `CustomerSegmentation.
                  .ToArray();
 ```
 
-Additionally, the method `SaveCustomerSegmentationPlot()` saves an scatter plot drawing the samples in each assigned cluster, using the [OxyPlot](http://www.oxyplot.org/) library.
+Additionally:
+-  The method `SaveCustomerSegmentationPlot()` saves an scatter plot drawing the samples in each assigned cluster, using the [OxyPlot](http://www.oxyplot.org/) library.
+-  The method `SaveCustomerSegmentationCSV()` saves an csv with the samples in each assigned cluster. 
 
 #### Model testing
 The second step of the solution would be to get the actual customer clusters. For this, set the project `CustomerSegmentation.Predict` as Startup project, and hit F5.

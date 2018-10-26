@@ -17,13 +17,15 @@ namespace CustomerSegmentation.Model
         private readonly string pivotDataLocation;
         private readonly string modelLocation;
         private readonly string plotLocation;
+        private readonly string csvlocation;
         private readonly LocalEnvironment env;
 
-        public ModelEvaluator(string pivotDataLocation, string modelLocation, string plotLocation)
+        public ModelEvaluator(string pivotDataLocation, string modelLocation, string plotLocation, string csvlocation)
         {
             this.pivotDataLocation = pivotDataLocation;
             this.modelLocation = modelLocation;
             this.plotLocation = plotLocation;
+            this.csvlocation = csvlocation;
             env = new LocalEnvironment(seed: 1);  //Seed set to any number so you have a deterministic environment
         }
 
@@ -56,7 +58,7 @@ namespace CustomerSegmentation.Model
                             .ToArray();
 
             SaveCustomerSegmentationPlot(predictions, plotLocation);
-            
+            SaveCustomerSegmentationCSV(predictions, csvlocation);
         }
 
         private static void SaveCustomerSegmentationPlot(IEnumerable<ClusteringPrediction> predictions, string plotLocation)
@@ -86,6 +88,22 @@ namespace CustomerSegmentation.Model
             }
 
             Console.WriteLine($"Plot location: {plotLocation}");
+        }
+
+        private static void SaveCustomerSegmentationCSV(IEnumerable<ClusteringPrediction> predictions,  string csvlocation)
+        {
+            ConsoleWriteHeader("CSV Customer Segmentation");
+            using (var w = new System.IO.StreamWriter(csvlocation))
+            {
+                w.WriteLine($"LastName,SelectedClusterId");
+                w.Flush();
+                predictions.ToList().ForEach(prediction => {
+                    w.WriteLine($"{prediction.LastName},{prediction.SelectedClusterId}");
+                    w.Flush();
+                });
+            }
+
+            Console.WriteLine($"CSV location: {csvlocation}");
         }
     }
 }

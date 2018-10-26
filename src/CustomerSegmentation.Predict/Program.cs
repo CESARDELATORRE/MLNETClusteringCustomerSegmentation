@@ -15,10 +15,11 @@ namespace CustomerSegmentation
             var pivotCsv = Path.Combine(assetsPath, "inputs", "pivot.csv");
             var modelZip = Path.Combine(assetsPath, "inputs", "retailClustering.zip");
             var plotSvg = Path.Combine(assetsPath, "outputs", "customerSegmentation.svg");
+            var plotCsv = Path.Combine(assetsPath, "outputs", "customerSegmentation.csv");
 
             try
             {
-                var modelEvaluator = new ModelEvaluator(pivotCsv, modelZip, plotSvg);
+                var modelEvaluator = new ModelEvaluator(pivotCsv, modelZip, plotSvg, plotCsv);
                 modelEvaluator.Evaluate();
             } catch (Exception ex)
             {
