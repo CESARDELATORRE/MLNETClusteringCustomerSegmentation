@@ -1,5 +1,7 @@
 # Customer Segmentation - Clustering sample
 
+## IMPORTANT: Its latest version is at the ML.NET Samples repo at https://github.com/dotnet/machinelearning-samples/tree/master/samples/csharp/getting-started/Clustering_CustomerSegmentation
+
 ## DataSet
 
 The dataset is split in two files, which are located in assets / data
